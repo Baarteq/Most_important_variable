@@ -1,0 +1,8 @@
+openai
+python-dotenv
+streamlit
+pydub
+pandas
+pycaret.classification
+pycaret.regression
+base64
