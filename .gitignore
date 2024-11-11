@@ -1,6 +1,6 @@
 .env
 brudnopis.txt
 Feature Importance.png
-logs.logs
+logs.log
 model_klasyfikujacy_pipeline.pkl
 model_regresji_pipeline.pkl
