@@ -6,9 +6,7 @@ from dotenv import dotenv_values
 from openai import OpenAI
 import base64
 
-
 env = dotenv_values(".env")
-#openai_client = OpenAI(api_key=st.session_state['openai_api_key'])
 
 # OpenAI API key protection
 if not st.session_state.get("openai_api_key"):
@@ -103,6 +101,7 @@ if Plik is not None:
 #v2 - Wybór kolumny docelowej
 
     kolumna = st.selectbox("Wybierz kolumnę docelową", tabela.columns)
+    tabela= tabela.dropna(how='all')
     result_less_10_values = has_less_than_10_unique_numbers(tabela, kolumna)
     if st.button("Analizuj dane"):
         if result_less_10_values:
