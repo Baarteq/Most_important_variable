@@ -117,7 +117,6 @@ if Plik is not None:
 
 #v2 - Wybór kolumny docelowej
 
-    #kolumna = st.selectbox("Wybierz kolumnę docelową", tabela.columns)
     result_less_5_values = has_less_than_5_unique_numbers(tabela, kolumna)
 
     if st.button("Analizuj dane"):
