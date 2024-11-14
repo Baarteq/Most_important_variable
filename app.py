@@ -44,11 +44,11 @@ def regres_data(df, predicted_column_name="kategoria"):
     df= df.rename(columns={'prediction_label': predicted_column_name})
     return df
 
-def has_less_than_10_unique_numbers(tabela, kolumna):
+def has_less_than_5_unique_numbers(tabela, kolumna):
     # Sprawdzamy unikalne wartości w kolumnie docelowej
     unique_values = tabela[kolumna].unique()
-    # Sprawdzamy, czy liczba unikalnych wartości w kolumnie docelowej jest większa niż 10
-    return len(unique_values) < 10
+    # Sprawdzamy, czy liczba unikalnych wartości w kolumnie docelowej jest mniejsza niż 5
+    return len(unique_values) < 5
 
 def describe_image(image_path):
     response = openai_client.chat.completions.create(
@@ -83,53 +83,70 @@ def describe_image(image_path):
 st.set_page_config(page_title="Najbardziej wartościowa zmienna", layout="wide")
 st.title("Najbardziej wartościowa zmienna")
 
-#v1 - możliwość wczytania pliku CSV i wyświetlenie przykładowych danych
-
+#v1 - możliwość wczytania pliku CSV
 with st.sidebar:
+    #Wczytanie plku CSV
     Plik = st.file_uploader("Wybierz plik CSV z danymi do analizy", type=['csv'])
     if Plik is not None:
+        #Określenie rodzaju separatora użytego w pliku CSV
         separator= st.selectbox("Podaj typ separatora użytego w pliku CSV", [";", ",", 'tab', 'spacja'])
-        Data_Frame= pd.read_csv(Plik, sep=separator)
+        #Stworzenie tabeli z wczytanego pliku
+        tabela= pd.read_csv(Plik, sep=separator)
+        #Określenie przez użytkownika kolumny docelowej
+        kolumna = st.selectbox("Wybierz kolumnę docelową", tabela.columns)
+        #Możliwość usunięcia kolumn z analizy
+        st.write("Czy chcesz usunąć z analizy jakieś kolumny?")
+        columns_to_del=st.multiselect('Wybierz kolumny do usunięcia',tabela.columns.drop(kolumna))
+        tabela= tabela.dropna(how='all')
 
+        #Przygotowanie danych do analizywyrzucenie wierszy gdzie wartości NaN występują w 35% dostępnych kolumn
+        num_rows = tabela.shape[0]
+        y=min(1, len(columns_to_del))
+        num_columns = (tabela.shape[1]-(len(columns_to_del)+y))
+        tabela = tabela.dropna(thresh=(tabela.shape[1]*0.65))
+        #Sprawdzam, czy mamy wystarczającą ilość danych do przeprowadzenia analizy
+        if num_rows < 10 * num_columns:
+            st.error("Za mała ilość danych do przeprowadzenia analizy")
+            st.stop()
 
+#Wyświetlenie 5 przykładowych wierszy
 if Plik is not None:
-    tabela = Data_Frame
     st.write("Losowe wiersze z pliku")
-    x=min(10, len(tabela))
+    x=min(5, len(tabela))
     st.dataframe(tabela.sample(x),hide_index=True)
 
 #v2 - Wybór kolumny docelowej
 
-    kolumna = st.selectbox("Wybierz kolumnę docelową", tabela.columns)
-    tabela= tabela.dropna(how='all')
-    result_less_10_values = has_less_than_10_unique_numbers(tabela, kolumna)
+    #kolumna = st.selectbox("Wybierz kolumnę docelową", tabela.columns)
+    result_less_5_values = has_less_than_5_unique_numbers(tabela, kolumna)
+
     if st.button("Analizuj dane"):
-        if result_less_10_values:
+        if result_less_5_values:
             with st.spinner("Analizuję dane. Czekaj...."):
-                    setup_klas(data=tabela, target=kolumna, session_id=123)
-                    best_model_klasyfikacja = compare_models_klas()
-                    final_model_klas = finalize_model_klas(best_model_klasyfikacja)
-                    save_model_klas(final_model_klas, "model_klasyfikujacy_pipeline")
-                    st.success("Gotowe!")
-                    wynik = classify_data(tabela)
-                    st.dataframe(wynik,hide_index=True)
-                    plot_model_klas(best_model_klasyfikacja, plot='feature', save=True)
-                    plot_name = 'Feature Importance.png'
-                    plot_image = st.image(plot_name, use_column_width=False)
+                setup_klas(data=tabela, target=kolumna, session_id=123, ignore_features=columns_to_del)
+                best_model_klasyfikacja = compare_models_klas()
+                final_model_klas = finalize_model_klas(best_model_klasyfikacja)
+                save_model_klas(final_model_klas, "model_klasyfikujacy_pipeline")
+                st.success("Gotowe!")
+                wynik = classify_data(tabela)
+                st.dataframe(wynik,hide_index=True)
+                plot_model_klas(best_model_klasyfikacja, plot='feature', save=True)
+                plot_name = 'Feature Importance.png'
+                plot_image = st.image(plot_name, use_column_width=False)
         else:
             with st.spinner("Analizuję dane. Czekaj...."):
-                    setup_reg(data=tabela, target=kolumna, session_id=124)
-                    best_model_regresja = compare_models_reg()
-                    final_model_reg = finalize_model_reg(best_model_regresja)
-                    save_model_reg(final_model_reg, "model_regresji_pipeline")
-                    wynik = regres_data(tabela)
-                    st.dataframe(wynik,hide_index=True)
-                    plot_model_reg(best_model_regresja, plot='feature', save=True)
-                    plot_name = 'Feature Importance.png'
-                    plot_image = st.image(plot_name, use_column_width=False)
-    
+                setup_reg(data=tabela, target=kolumna, session_id=124, ignore_features=columns_to_del)
+                best_model_regresja = compare_models_reg()
+                final_model_reg = finalize_model_reg(best_model_regresja)
+                save_model_reg(final_model_reg, "model_regresji_pipeline")
+                wynik = regres_data(tabela)
+                st.dataframe(wynik,hide_index=True)
+                plot_model_reg(best_model_regresja, plot='feature', save=True)
+                plot_name = 'Feature Importance.png'
+                plot_image = st.image(plot_name, use_column_width=False)
+                        
         if plot_image:
             with st.spinner("Genreuję opis wykresu. Czekaj..."):
                 opis_wykresu= describe_image("Feature Importance.png")
                 st.write(opis_wykresu)
-    
+                
