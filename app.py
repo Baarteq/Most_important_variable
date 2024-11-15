@@ -98,11 +98,11 @@ with st.sidebar:
         if columns_to_del:
             tabela= tabela.drop(columns= columns_to_del)
         tabela= tabela.dropna(how='all')
-        #Preparing data for analysis - deleting rows where NaN values ​​occur in 25% of available columns, changing NaN values ​​in columns with the mode value for each column
+        #Preparing data for analysis - deleting rows where NaN values ​​occur in 35% of available columns, changing NaN values ​​in columns with the mode value for each column
         num_rows = tabela.shape[0]
         y=min(1, len(columns_to_del))
         num_columns = (tabela.shape[1]-(len(columns_to_del)+y))
-        tabela = tabela.dropna(thresh=(tabela.shape[1]*0.75))
+        tabela = tabela.dropna(thresh=(tabela.shape[1]*0.65))
         columns_names= tabela.columns.tolist()
         number_of_columns = len(columns_names)
         for number_of_columns in tabela.columns:
@@ -113,7 +113,7 @@ with st.sidebar:
         mode_target_column = tabela[kolumna].mode()
         tabela[kolumna].fillna(mode_target_column, inplace=True)
         #Checking if we have enough data to perform the analysis
-        if num_rows < 7 * num_columns:
+        if num_rows < 6 * num_columns:
             st.error("Za mała ilość danych do przeprowadzenia analizy")
             st.stop()
 
@@ -123,7 +123,6 @@ if Plik is not None:
     x=min(5, len(tabela))
     st.dataframe(tabela.sample(x),hide_index=True)
     result_less_5_values = has_less_than_5_unique_numbers(tabela, kolumna)
-    st.dataframe(tabela)
     if st.button("Analizuj dane"):
         # If target column has less than 5 unique values we choose classification model
         if result_less_5_values:
