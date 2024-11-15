@@ -6,6 +6,7 @@ from dotenv import dotenv_values
 from openai import OpenAI
 import base64
 
+
 env = dotenv_values(".env")
 
 # OpenAI API key protection
@@ -25,31 +26,30 @@ def get_openai_client():
     return OpenAI(api_key=st.session_state["openai_api_key"])
 
 openai_client = get_openai_client()
-
+# Preparation of image for OpenAI
 def prepare_image_for_open_ai(image_path):
     with open(image_path, "rb") as f:
         image_data = base64.b64encode(f.read()).decode('utf-8')
 
     return f"data:image/png;base64,{image_data}"
-
+# Best model for classification
 def classify_data(df, predicted_column_name="kategoria"):
     model_klasyfikacja= load_model_klas("model_klasyfikujacy_pipeline")
     df= predict_model_klas(model_klasyfikacja, data=df)
     df= df.rename(columns={'prediction_label': predicted_column_name})
     return df
-
+# Best model for regresion
 def regres_data(df, predicted_column_name="kategoria"):
     model_regresja= load_model_reg("model_regresji_pipeline")
     df= predict_model_klas(model_regresja, data=df)
     df= df.rename(columns={'prediction_label': predicted_column_name})
     return df
-
+# Checking unique values ​​in target column. and check if number of unique values ​​in target column is less than 5
 def has_less_than_5_unique_numbers(tabela, kolumna):
-    # Sprawdzamy unikalne wartości w kolumnie docelowej
     unique_values = tabela[kolumna].unique()
-    # Sprawdzamy, czy liczba unikalnych wartości w kolumnie docelowej jest mniejsza niż 5
     return len(unique_values) < 5
 
+# Prompt for OpenAI image-to-text model
 def describe_image(image_path):
     response = openai_client.chat.completions.create(
         model="gpt-4o-mini",
@@ -83,43 +83,41 @@ def describe_image(image_path):
 st.set_page_config(page_title="Najbardziej wartościowa zmienna", layout="wide")
 st.title("Najbardziej wartościowa zmienna")
 
-#v1 - możliwość wczytania pliku CSV
+#v1 - Ability to upload a CSV file
 with st.sidebar:
-    #Wczytanie plku CSV
     Plik = st.file_uploader("Wybierz plik CSV z danymi do analizy", type=['csv'])
     if Plik is not None:
-        #Określenie rodzaju separatora użytego w pliku CSV
+        #User defines the separator used in the CSV file
         separator= st.selectbox("Podaj typ separatora użytego w pliku CSV", [";", ",", 'tab', 'spacja'])
-        #Stworzenie tabeli z wczytanego pliku
         tabela= pd.read_csv(Plik, sep=separator)
-        #Określenie przez użytkownika kolumny docelowej
+        #User Specifies Target Column
         kolumna = st.selectbox("Wybierz kolumnę docelową", tabela.columns)
-        #Możliwość usunięcia kolumn z analizy
+        #User defines which columns will not be included in the analysis
         st.write("Czy chcesz usunąć z analizy jakieś kolumny?")
         columns_to_del=st.multiselect('Wybierz kolumny do usunięcia',tabela.columns.drop(kolumna))
+        if columns_to_del:
+            tabela= tabela.drop(columns= columns_to_del)
         tabela= tabela.dropna(how='all')
-
-        #Przygotowanie danych do analizywyrzucenie wierszy gdzie wartości NaN występują w 35% dostępnych kolumn
+        #Preparing data for analysis - deleting rows where NaN values ​​occur in 25% of available columns, changing NaN values ​​in the target column with the mode value
         num_rows = tabela.shape[0]
         y=min(1, len(columns_to_del))
         num_columns = (tabela.shape[1]-(len(columns_to_del)+y))
-        tabela = tabela.dropna(thresh=(tabela.shape[1]*0.65))
-        #Sprawdzam, czy mamy wystarczającą ilość danych do przeprowadzenia analizy
+        tabela = tabela.dropna(thresh=(tabela.shape[1]*0.75))
+        mode_target_column = tabela[kolumna].mode()
+        tabela[kolumna].fillna(mode_target_column, inplace=True)
+        #Checking if we have enough data to perform the analysis
         if num_rows < 10 * num_columns:
             st.error("Za mała ilość danych do przeprowadzenia analizy")
             st.stop()
 
-#Wyświetlenie 5 przykładowych wierszy
+#Showing 5 sample lines
 if Plik is not None:
     st.write("Losowe wiersze z pliku")
     x=min(5, len(tabela))
     st.dataframe(tabela.sample(x),hide_index=True)
-
-#v2 - Wybór kolumny docelowej
-
     result_less_5_values = has_less_than_5_unique_numbers(tabela, kolumna)
-
     if st.button("Analizuj dane"):
+        # If target column has less than 5 unique values we choose classification model
         if result_less_5_values:
             with st.spinner("Analizuję dane. Czekaj...."):
                 setup_klas(data=tabela, target=kolumna, session_id=123, ignore_features=columns_to_del)
@@ -132,6 +130,7 @@ if Plik is not None:
                 plot_model_klas(best_model_klasyfikacja, plot='feature', save=True)
                 plot_name = 'Feature Importance.png'
                 plot_image = st.image(plot_name, use_column_width=False)
+        # If ​​in target column has more than 5 unique values we choose regression model
         else:
             with st.spinner("Analizuję dane. Czekaj...."):
                 setup_reg(data=tabela, target=kolumna, session_id=124, ignore_features=columns_to_del)
@@ -143,7 +142,7 @@ if Plik is not None:
                 plot_model_reg(best_model_regresja, plot='feature', save=True)
                 plot_name = 'Feature Importance.png'
                 plot_image = st.image(plot_name, use_column_width=False)
-                        
+        # Generating a description for the most important variables chart   
         if plot_image:
             with st.spinner("Genreuję opis wykresu. Czekaj..."):
                 opis_wykresu= describe_image("Feature Importance.png")
