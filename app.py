@@ -98,11 +98,19 @@ with st.sidebar:
         if columns_to_del:
             tabela= tabela.drop(columns= columns_to_del)
         tabela= tabela.dropna(how='all')
+<<<<<<< HEAD
         #Preparing data for analysis - deleting rows where NaN values ​​occur in 25% of available columns, changing NaN values ​​in columns with the mode value for each column
         num_rows = tabela.shape[0]
         y=min(1, len(columns_to_del))
         num_columns = (tabela.shape[1]-(len(columns_to_del)+y))
         tabela = tabela.dropna(thresh=(tabela.shape[1]*0.75))
+=======
+        #Preparing data for analysis - deleting rows where NaN values ​​occur in 35% of available columns, changing NaN values ​​in columns with the mode value for each column
+        num_rows = tabela.shape[0]
+        y=min(1, len(columns_to_del))
+        num_columns = (tabela.shape[1]-(len(columns_to_del)+y))
+        tabela = tabela.dropna(thresh=(tabela.shape[1]*0.65))
+>>>>>>> 8a43e1b46d59987878907a6ad936241ffe859167
         columns_names= tabela.columns.tolist()
         number_of_columns = len(columns_names)
         for number_of_columns in tabela.columns:
@@ -113,7 +121,11 @@ with st.sidebar:
         mode_target_column = tabela[kolumna].mode()
         tabela[kolumna].fillna(mode_target_column, inplace=True)
         #Checking if we have enough data to perform the analysis
+<<<<<<< HEAD
         if num_rows < 7 * num_columns:
+=======
+        if num_rows < 6 * num_columns:
+>>>>>>> 8a43e1b46d59987878907a6ad936241ffe859167
             st.error("Za mała ilość danych do przeprowadzenia analizy")
             st.stop()
 
