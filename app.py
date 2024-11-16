@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
-from pycaret.classification import setup as setup_klas, compare_models as compare_models_klas, finalize_model as finalize_model_klas, plot_model as plot_model_klas, save_model as save_model_klas, load_model as load_model_klas, predict_model as predict_model_klas
-from pycaret.regression import setup as setup_reg, compare_models as compare_models_reg, finalize_model as finalize_model_reg, plot_model as plot_model_reg, save_model as save_model_reg, load_model as load_model_reg, predict_model as predict_model_reg
+from pycaret.classification import setup as setup_klas, create_model as create_model_klas, finalize_model as finalize_model_klas, plot_model as plot_model_klas, save_model as save_model_klas, load_model as load_model_klas, predict_model as predict_model_klas
+from pycaret.regression import setup as setup_reg, create_model as create_model_reg, finalize_model as finalize_model_reg, plot_model as plot_model_reg, save_model as save_model_reg, load_model as load_model_reg, predict_model as predict_model_reg
 from dotenv import dotenv_values
 from openai import OpenAI
 import base64
@@ -98,15 +98,22 @@ with st.sidebar:
         if columns_to_del:
             tabela= tabela.drop(columns= columns_to_del)
         tabela= tabela.dropna(how='all')
-        #Preparing data for analysis - deleting rows where NaN values ​​occur in 25% of available columns, changing NaN values ​​in the target column with the mode value
+        #Preparing data for analysis - deleting rows where NaN values ​​occur in 25% of available columns, changing NaN values ​​in columns with the mode value for each column
         num_rows = tabela.shape[0]
         y=min(1, len(columns_to_del))
         num_columns = (tabela.shape[1]-(len(columns_to_del)+y))
         tabela = tabela.dropna(thresh=(tabela.shape[1]*0.75))
+        columns_names= tabela.columns.tolist()
+        number_of_columns = len(columns_names)
+        for number_of_columns in tabela.columns:
+            list_of_mode= tabela[columns_names].mode()
+            list_of_mode= list_of_mode.dropna()
+        for column in tabela.columns:
+            tabela[column].fillna(list_of_mode[column].iloc[0], inplace=True)    
         mode_target_column = tabela[kolumna].mode()
         tabela[kolumna].fillna(mode_target_column, inplace=True)
         #Checking if we have enough data to perform the analysis
-        if num_rows < 10 * num_columns:
+        if num_rows < 7 * num_columns:
             st.error("Za mała ilość danych do przeprowadzenia analizy")
             st.stop()
 
@@ -116,12 +123,14 @@ if Plik is not None:
     x=min(5, len(tabela))
     st.dataframe(tabela.sample(x),hide_index=True)
     result_less_5_values = has_less_than_5_unique_numbers(tabela, kolumna)
+    st.dataframe(tabela)
     if st.button("Analizuj dane"):
         # If target column has less than 5 unique values we choose classification model
         if result_less_5_values:
             with st.spinner("Analizuję dane. Czekaj...."):
                 setup_klas(data=tabela, target=kolumna, session_id=123, ignore_features=columns_to_del)
-                best_model_klasyfikacja = compare_models_klas()
+                #best_model_klasyfikacja = compare_models_klas()
+                best_model_klasyfikacja = create_model_klas('lr',fold=10)
                 final_model_klas = finalize_model_klas(best_model_klasyfikacja)
                 save_model_klas(final_model_klas, "model_klasyfikujacy_pipeline")
                 st.success("Gotowe!")
@@ -134,7 +143,8 @@ if Plik is not None:
         else:
             with st.spinner("Analizuję dane. Czekaj...."):
                 setup_reg(data=tabela, target=kolumna, session_id=124, ignore_features=columns_to_del)
-                best_model_regresja = compare_models_reg()
+                #best_model_regresja = compare_models_reg()
+                best_model_regresja = create_model_reg('lr', fold=10)
                 final_model_reg = finalize_model_reg(best_model_regresja)
                 save_model_reg(final_model_reg, "model_regresji_pipeline")
                 wynik = regres_data(tabela)
