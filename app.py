@@ -77,7 +77,6 @@ def describe_image(image_path):
 
     return response.choices[0].message.content
 
-
 #MAIN
 
 st.set_page_config(page_title="Najbardziej wartościowa zmienna", layout="wide")
